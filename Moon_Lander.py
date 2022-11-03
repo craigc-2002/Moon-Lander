@@ -8,11 +8,10 @@ TO DO:
 - Fix rocket scrolling (when it turns back it should be able to return through the middle of the screen)
 
 - Add fuel system
-- Add throttle system
 - Add gauges on sides for position and velocity
 - Improve procedural generation of moon (or load from file)
-- Change lander art
-- Reimplement the landing site spot
+- Change lander art (lander and separate flames)
+- Reimplement the landing site spot (hard because of scrolling terrain)
 """
 
 
@@ -27,8 +26,7 @@ class MoonLander:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("Helvetica", 30)
 
-        image_index = {"rocket": ((1, 17), (10, 27)),
-                       "rocket_flames": ((11, 17), (20, 32))}
+        image_index = {"rocket": ((1, 17), (10, 27))}
         self.sprite_images = image_loader.get_textures("assets/textures.png", image_index)
 
         self.rocket = rocket.Rocket(self)
@@ -79,7 +77,7 @@ class MoonLander:
             # Update the display on screen
             pygame.display.flip()
             tick_time = self.clock.tick(60)
-            self.dt = tick_time / 1000
+            self.dt = tick_time / 100
 
 
 if __name__ == "__main__":

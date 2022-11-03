@@ -55,11 +55,11 @@ class Sprite:
         Method to update the sprite by calculating its position for the next frame
         Uses Euler integration to calculate the updated position, velocity and rotation
         """
-        dt = self.game.dt * 10  # Simulation timestep
+        dt = self.game.dt  # Simulation timestep
 
         # Integrate to get the new position and velocity
-        self.velocity = self.velocity + self.acceleration * dt
-        self.position = self.position + self.velocity * dt
+        self.velocity += self.acceleration * dt
+        self.position += self.velocity * dt
 
         self.angle = self.angle + self.angular_velocity * dt
 
@@ -157,6 +157,8 @@ class Rocket(Sprite):
         self.apogee_time = 0
         self.landing_time = 0
 
+        self.throttle = 0
+
         super().__init__(game, image, (75, 75), self.start_pos)
 
     def reset(self):
@@ -179,6 +181,7 @@ class Rocket(Sprite):
         of the rocket depending on keyboard inout and current speed
         """
         self.height = self.position.y - self.game.moon.get_height(self.position.x)
+        dt = self.game.dt  # Simulation timestep
 
         if self.height <= 0:
             self.acceleration = v.vector()
@@ -195,8 +198,17 @@ class Rocket(Sprite):
             else:
                 self.angular_velocity = 0
 
+        # Calculate the new throttle level and acceleration
+        max_throttle = 5
         if self.accelerating:
-            self.acceleration += self.direction * 3
+            self.throttle += max_throttle * dt
+        else:
+            self.throttle -= max_throttle * dt
+        if self.throttle > max_throttle:
+            self.throttle = max_throttle
+        elif self.throttle < 0:
+            self.throttle = 0
+        self.acceleration += (self.direction * self.throttle)
         """
         self.landing_time = 0
         if self.velocity.y > 0:

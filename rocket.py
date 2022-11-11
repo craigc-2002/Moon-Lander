@@ -30,14 +30,13 @@ class Sprite:
         self.screen_dims = pygame.display.get_window_size()
         self.scale = (scale[0], scale[1])
 
-        # self.image = pygame.image.load(image_path)
-        # self.image = self.image.convert_alpha(self.image)
         self.image = image
 
         # Initialise vectors for position, velocity and acceleration
         self.position = v.vector(init_pos[0], init_pos[1])
         self.display_pos = self.display_coord_transform(self.position)
         self.display_pos_delta = 0
+        self.display_height_delta = 0
         self.clamped_position = (0, 0)
         self.velocity = v.vector(init_velocity[0], init_velocity[1])
         self.acceleration = v.vector()
@@ -123,6 +122,11 @@ class Sprite:
         # Calculate the difference between where the image should be and where it is
         self.display_pos_delta = target_pos[0] - self.display_pos[0]
 
+        if self.display_pos[1] < 150:
+            self.display_pos = (self.display_pos[0], 150)
+
+        self.display_height_delta = target_pos[1] - self.display_pos[1]
+
         # Draw image to screen
         self.game.screen.blit(rotated_image, self.display_pos)
 
@@ -148,7 +152,7 @@ class Rocket(Sprite):
     """
 
     def __init__(self, game):
-        self.start_pos = (0, 100)
+        start_pos = (0, 0)
 
         image = game.sprite_images["rocket"]
 
@@ -158,20 +162,29 @@ class Rocket(Sprite):
         self.landing_time = 0
 
         self.throttle = 0
+        self.fuel = 100
 
-        super().__init__(game, image, (75, 75), self.start_pos)
+        super().__init__(game, image, (75, 75), start_pos)
 
-    def reset(self):
+    def reset(self, position, velocity):
         """
         Method to reset the rocket's position on a new game
         """
-        self.position = v.vector(self.start_pos[0], self.start_pos[1])
-        self.velocity = v.vector()
+        self.position = v.vector(position[0], position[1])
+        self.velocity = v.vector(velocity[0], velocity[1])
         self.acceleration = v.vector()
         self.angle = 0
 
         self.accelerating = False
         self.rotating = 0
+
+        self.height = 0
+        self.landing_pos = v.vector()
+        self.apogee_time = 0
+        self.landing_time = 0
+
+        self.throttle = 0
+        self.fuel = 100
 
         self.draw()
 
@@ -180,13 +193,14 @@ class Rocket(Sprite):
         Overloaded update method for the Rocket class. Sets the acceleration and angular velocity
         of the rocket depending on keyboard inout and current speed
         """
-        self.height = self.position.y - self.game.moon.get_height(self.position.x)
+        self.height = self.position.y - self.game.moon.get_height(self.display_pos[0])
         dt = self.game.dt  # Simulation timestep
 
         if self.height <= 0:
+            self.land()
             self.acceleration = v.vector()
             self.velocity = v.vector()
-            self.position = v.vector(self.position.x, self.game.moon.get_height(self.position.x))
+            self.position = v.vector(self.position.x, self.game.moon.get_height(self.display_pos[0]))
         else:
             self.acceleration = v.vector(0, -self.game.g)
 
@@ -198,23 +212,26 @@ class Rocket(Sprite):
             else:
                 self.angular_velocity = 0
 
-        # Calculate the new throttle level and acceleration
         max_throttle = 5
-        if self.accelerating:
-            self.throttle += max_throttle * dt
+        if self.fuel > 0:
+            if self.accelerating:
+                self.throttle += 0.2 * max_throttle * dt
+            else:
+                self.throttle -= 0.2 * max_throttle * dt
+            if self.throttle > max_throttle:
+                self.throttle = max_throttle
+            elif self.throttle < 0:
+                self.throttle = 0
         else:
-            self.throttle -= max_throttle * dt
-        if self.throttle > max_throttle:
-            self.throttle = max_throttle
-        elif self.throttle < 0:
             self.throttle = 0
         self.acceleration += (self.direction * self.throttle)
-        """
+        self.fuel -= self.throttle * 0.1 * dt
+
         self.landing_time = 0
         if self.velocity.y > 0:
             apogee_time = self.velocity.y / self.game.g
             apogee_height = (self.height + (self.velocity.y * apogee_time) +
-                             ((self.acceleration.y * apogee_time ** 2) / 2))
+                             ((self.game.g * apogee_time ** 2) / 2))
             self.landing_time = apogee_time + math.sqrt(abs((2 * apogee_height) / self.game.g))
         else:
             if self.height > 0:
@@ -222,20 +239,48 @@ class Rocket(Sprite):
                     self.velocity.y ** 2 + 2 * self.game.g * self.height)) / self.game.g
 
         downrange = self.position.x + (self.velocity.x * self.landing_time)
-        self.landing_pos = (downrange, self.game.moon.get_height(downrange))"""
+        self.landing_pos = (downrange, self.game.moon.get_height(downrange))
 
         self.rotating = 0
         self.accelerating = False
         super().update()
 
     def draw(self):
-        """
-        Method to change the image used by the rocket if it's accelerating
-        """
+        # Rotate image (angle is stored in radians clockwise from 0, has to be converted to degrees anticlockwise)
+        scale = (self.scale[0] * self.game.scale[0], self.scale[1] * self.game.scale[1])
+        scaled_image = pygame.transform.scale(self.image, scale)
+        rotated_image = pygame.transform.rotate(scaled_image, self.angle * (-180 / math.pi))
 
-        #if self.height > 10:
-            #pygame.draw.circle(self.game.screen, (255, 0, 0), self.display_coord_transform(self.landing_pos), 5)
-        super().draw()
+        # Calculate where the rocket should be on screen
+        self.display_pos = self.display_coord_transform(self.position, rotated_image.get_size())
+        target_pos = self.display_pos
+
+        # If it is too close to either edge then clamp it
+        if 3 * self.screen_dims[0] / 4 < self.display_pos[0]:
+            self.display_pos = (3 * self.screen_dims[0] / 4, self.display_pos[1])
+
+        elif self.display_pos[0] < self.screen_dims[0] / 4:
+            self.display_pos = (self.screen_dims[0] / 4, self.display_pos[1])
+
+        # Calculate the difference between where the image should be and where it is
+        self.display_pos_delta = target_pos[0] - self.display_pos[0]
+
+        if self.display_pos[1] < 150:
+            self.display_pos = (self.display_pos[0], 150)
+
+        self.display_height_delta = target_pos[1] - self.display_pos[1]
+
+        # Draw image to screen
+        self.game.screen.blit(rotated_image, self.display_pos)
+
+        if self.height > 10:
+            pygame.draw.circle(self.game.screen, (255, 0, 0), self.display_coord_transform(self.landing_pos), 5)
+
+    def land(self):
+        """
+        Method called when the rocket lands to check whether it crashes
+        """
+        pass
 
     def move_forward(self):
         self.accelerating = True

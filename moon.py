@@ -1,12 +1,13 @@
 import pygame
 import perlin_noise
+import random
 
 
 class Moon:
     def __init__(self, game):
         self.game = game
 
-        self.p = perlin_noise.PerlinNoise(octaves=5, seed=100)
+        self.p = perlin_noise.PerlinNoise(octaves=3, seed=random.randint(0,1000))
 
         self.height_map = []
         self.display_points = []
@@ -23,8 +24,7 @@ class Moon:
         """
         for i in range(n):
             index = (i + start_point)*0.0005
-            perlin_val = self.p(index)
-            perlin_val = amplify(perlin_val)
+            perlin_val = 500*self.p(index)
             height = 150 + perlin_val
             self.height_map.append(height)
 
@@ -47,24 +47,9 @@ class Moon:
 
     def get_height(self, x):
         index = round(x)
-        #index = round(x+len(self.height_map)/2)
+        # index = round(x+len(self.height_map)/2)
         if 0 < index < len(self.display_points)-1:
             ground_height = 720 - self.display_points[index][1] - self.game.rocket.display_height_delta
         else:
             ground_height = 0
         return ground_height
-
-
-def amplify(noise_val: float):
-    """
-    Method to return an amplified value for the terrain perlin noise
-    Amplifies the higher values and normalises to a range suitable for display
-    :param noise_val:
-    :return amplified_val:
-    """
-    base = 50
-    max = 400
-
-    amplified_val = 500*noise_val
-
-    return amplified_val

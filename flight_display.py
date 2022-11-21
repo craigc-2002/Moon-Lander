@@ -1,5 +1,4 @@
 import pygame
-import vector as v
 
 
 class ScaleDisplay:
@@ -17,6 +16,7 @@ class ScaleDisplay:
         self.display_value = scale_range[0]
 
     def update(self, new_value):
+        # Scale the display value based on the input value, and clamp to the length of the scales
         if new_value > self.scale_range[1]:
             self.display_value = 1
         elif new_value < self.scale_range[0]:
@@ -25,6 +25,7 @@ class ScaleDisplay:
             self.display_value = new_value / (self.scale_range[1]-self.scale_range[0])
 
     def draw(self):
+        # Draw main scale line
         pygame.draw.line(self.game.screen, (255, 255, 255), self.low_end, self.high_end, 5)
 
         # Draw line ends

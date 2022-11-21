@@ -8,15 +8,7 @@ import flight_display as fd
 
 """
 TO DO:
-- Fix rocket scrolling (when it turns back it should be able to return through the middle of the screen)
 
-- Implement end game screens
-- Add crash system
-- Add gauges on sides for position and velocity
-- Improve procedural generation of moon (or load from file) - load at start (procedural generation too slow)
--   Amplify features to get larger hills?
-- Change lander art (lander and separate flames)
-- Reimplement the landing site spot (hard because of scrolling terrain)
 """
 
 
@@ -32,8 +24,10 @@ class MoonLander:
         self.font = pygame.font.SysFont("Helvetica", 30)
         self.title_font = pygame.font.SysFont("Helvetica", 100)
 
-        image_index = {"rocket": ((1, 17), (10, 27))}
-        self.sprite_images = image_loader.get_textures("assets/textures.png", image_index)
+        image_index = {"lander": ((0, 1), (15, 15)),
+                       "lander_flames": ((15, 1), (30, 15)),
+                       "explosion": ((30, 0), (45, 15))}
+        self.sprite_images = image_loader.get_textures("assets/sprites.png", image_index)
 
         self.rocket = rocket.Rocket(self)
         self.moon = moon.Moon(self)
@@ -55,7 +49,7 @@ class MoonLander:
         load_rect = pygame.Rect(540, 360, 200, 200)
         end_angle = math.pi/2
         num_points = 50000
-        num_per_loop = 100
+        num_per_loop = 1000
         num_loops = num_points//num_per_loop
 
         for i in range(num_loops):
@@ -89,7 +83,7 @@ class MoonLander:
         self.title_screen()
 
     def title_screen(self):
-        scaled_image = pygame.transform.scale(self.sprite_images["rocket"], (200, 200))
+        scaled_image = pygame.transform.scale(self.sprite_images["lander"], (200, 200))
         rotated_image = pygame.transform.rotate(scaled_image, -90)
         i = 0
 
@@ -120,7 +114,8 @@ class MoonLander:
             pygame.display.flip()
 
     def game_loop(self):
-        self.rocket.reset((-10000, 10000), (100, -10))
+        #self.rocket.reset((-10000, 10000), (100, -10))
+        self.rocket.reset((0, 1000), (0, 0))
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -181,6 +176,35 @@ class MoonLander:
             pygame.display.flip()
             tick_time = self.clock.tick(60)
             self.dt = tick_time / 100
+
+    def game_over(self, ending):
+        """
+        Method to display the game over screen
+        """
+        if ending == "crash":
+            message = "CRASH"
+        else:
+            message = "SAFE LANDING"
+        game_over_text_img = self.title_font.render(message, True, (255, 255, 255))
+
+        replay_text_img = self.font.render("CLICK TO REPLAY", True, (255, 255, 255))
+
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    raise SystemExit
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    self.game_loop()
+
+            self.screen.fill("black")
+            self.moon.draw()
+            self.rocket.draw()
+            self.screen.blit(game_over_text_img, ((self.window_width/2)-(game_over_text_img.get_width()/2), 100))
+            self.screen.blit(replay_text_img, ((self.window_width/2)-(replay_text_img.get_width()/2), 250))
+
+            pygame.display.flip()
+            self.clock.tick(60)
 
 
 if __name__ == "__main__":

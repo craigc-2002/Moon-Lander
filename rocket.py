@@ -39,6 +39,9 @@ class Sprite:
         self.acceleration = v.vector()
         self.accelerating = False
 
+        self.display_pos_delta = 0
+        self.display_height_delta = 0
+
         # Initialise the angle and direction of the sprite
         self.direction = v.vector()  # A unit vector to represent the sprite's direction
         self._angle = 0  # Angle in radians clockwise from the y-axis (0 is pointing straight up)
@@ -58,15 +61,6 @@ class Sprite:
         self.position += self.velocity * dt
 
         self.angle = self.angle + self.angular_velocity * dt
-
-        self.check_edges()
-
-    def check_edges(self):
-        """
-        Method to check whether the sprite has reached the edge of the screen and wrap it around if so
-        """
-        if self.screen_dims[0] < self.display_pos[0]:
-            self.position = v.vector(0, self.position.y)
 
     def check_collision(self, other):
         """
@@ -108,6 +102,25 @@ class Sprite:
         self.display_pos = self.display_coord_transform(self.position, rotated_image.get_size())
         target_pos = self.display_pos
 
+        # If it is too close to either edge then clamp it
+        if 3 * self.screen_dims[0] / 4 < self.display_pos[0]:
+            self.display_pos = (3 * self.screen_dims[0] / 4, self.display_pos[1])
+        elif self.display_pos[0] < self.screen_dims[0] / 4:
+            self.display_pos = (self.screen_dims[0] / 4, self.display_pos[1])
+
+        # Calculate the horizontal offset
+        self.display_pos_delta = target_pos[0] - self.display_pos[0]
+
+        # Clamp the vertical display position
+        if self.display_pos[1] < 150:
+            self.display_pos = (self.display_pos[0], 150)
+
+        elif self.display_pos[1] > 600:
+            self.display_pos = (self.display_pos[0], 600)
+
+        # Calculate the vertical offset
+        self.display_height_delta = target_pos[1] - self.display_pos[1]
+
         # Draw image to screen
         self.game.screen.blit(rotated_image, self.display_pos)
 
@@ -135,18 +148,15 @@ class Rocket(Sprite):
     def __init__(self, game):
         start_pos = (0, 0)
 
-        self.display_pos_delta = 0
-        self.display_height_delta = 0
-
         image = game.sprite_images["lander"]
 
         self.height = 0
-        self.landing_pos = v.vector()
-        self.apogee_time = 0
-        self.landing_time = 0
 
         self.throttle = 0
         self.fuel = 100
+        self.max_throttle = 50
+        self.m = 25
+        self.twr_max = self.max_throttle/self.m
 
         super().__init__(game, image, (75, 75), start_pos)
 
@@ -194,56 +204,31 @@ class Rocket(Sprite):
             else:
                 self.angular_velocity = 0
 
-        max_throttle = 5
+        d_throttle = 2.5
         if self.fuel > 0:
             if self.accelerating:
                 self.image = self.game.sprite_images["lander_flames"]
-                self.throttle += 0.2 * max_throttle * dt
+                self.throttle += d_throttle * self.max_throttle * dt
             else:
                 self.image = self.game.sprite_images["lander"]
-                self.throttle -= 0.2 * max_throttle * dt
-            if self.throttle > max_throttle:
-                self.throttle = max_throttle
+                self.throttle -= d_throttle * self.max_throttle * dt
+            if self.throttle > self.max_throttle:
+                self.throttle = self.max_throttle
             elif self.throttle < 0:
                 self.throttle = 0
         else:
+            self.image = self.game.sprite_images["lander"]
             self.throttle = 0
-        self.acceleration += (self.direction * self.throttle)
-        self.fuel -= self.throttle * 0.1 * dt
+
+        twr = self.throttle / self.m
+        self.acceleration += (self.direction * twr)
+        self.fuel -= self.throttle * 0.015 * dt
+        self.m = 10 + (15 * self.fuel/100)
+        self.twr_max = self.max_throttle / self.m if self.fuel > 0 else 0
 
         self.rotating = 0
         self.accelerating = False
         super().update()
-
-    def draw(self):
-        # Rotate image (angle is stored in radians clockwise from 0, has to be converted to degrees anticlockwise)
-        scale = (self.scale[0] * self.game.scale[0], self.scale[1] * self.game.scale[1])
-        scaled_image = pygame.transform.scale(self.image, scale)
-        rotated_image = pygame.transform.rotate(scaled_image, self.angle * (-180 / math.pi))
-
-        # Calculate where the rocket should be on screen
-        target_pos = self.display_coord_transform(self.position, rotated_image.get_size())
-        self.display_pos = (target_pos[0] - self.display_pos_delta, target_pos[1])
-
-        # If it is too close to either edge then clamp it
-        if 3 * self.screen_dims[0] / 4 < self.display_pos[0]:
-            self.display_pos = (3 * self.screen_dims[0] / 4, self.display_pos[1])
-
-        elif self.display_pos[0] < self.screen_dims[0] / 4:
-            self.display_pos = (self.screen_dims[0] / 4, self.display_pos[1])
-
-        # Calculate the horizontal offset for the terrain
-        self.display_pos_delta = target_pos[0] - self.display_pos[0]
-
-        # Clamp the vertical display position
-        if self.display_pos[1] < 150:
-            self.display_pos = (self.display_pos[0], 150)
-
-        # Calculate the vertical offset for the terrain
-        self.display_height_delta = target_pos[1] - self.display_pos[1]
-
-        # Draw image to screen
-        self.game.screen.blit(rotated_image, self.display_pos)
 
     def land(self):
         """

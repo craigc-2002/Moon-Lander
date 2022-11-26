@@ -7,7 +7,7 @@ class Moon:
     def __init__(self, game):
         self.game = game
 
-        self.p = perlin_noise.PerlinNoise(octaves=3, seed=random.randint(0,1000))
+        self.p = perlin_noise.PerlinNoise(octaves=3, seed=random.randint(0, 1000))
 
         self.height_map = []
         self.display_points = []
@@ -47,7 +47,6 @@ class Moon:
 
     def get_height(self, x):
         index = round(x)
-        # index = round(x+len(self.height_map)/2)
         if 0 < index < len(self.display_points)-1:
             ground_height = 720 - self.display_points[index][1] - self.game.rocket.display_height_delta
         else:

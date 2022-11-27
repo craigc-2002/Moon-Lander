@@ -124,7 +124,7 @@ class MoonLander:
             self.clock.tick()
 
     def game_loop(self):
-        #self.rocket.reset((-10000, 10000), (100, -10))
+        #self.rocket.reset((0, 1000), (0, 0))
         self.rocket.reset((0, 5000), (25, 0))
         self.data_storage.clear()
         self.time = 0
